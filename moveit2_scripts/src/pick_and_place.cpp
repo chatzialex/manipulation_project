@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
              // since they are initialized to 0
     table_plane_pose.position.x = 0.5;
     table_plane_pose.position.y = 0.25;
-    table_plane_pose.position.z = 0.0;
+    table_plane_pose.position.z = -0.011;
 
     collision_object.primitives.push_back(table_plane);
     collision_object.primitive_poses.push_back(table_plane_pose);
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
   target_pose1.orientation.w = 0.0;
   target_pose1.position.x = 0.341;
   target_pose1.position.y = -0.020;
-  target_pose1.position.z = 0.226;
+  target_pose1.position.z = 0.26;
   move_group_arm.setPoseTarget(target_pose1);
 
   if (move_group_arm.plan(my_plan_arm) !=
@@ -176,6 +176,7 @@ int main(int argc, char **argv) {
   // Approach
   RCLCPP_INFO(LOGGER, "Approach to object!");
 
+  move_group_arm.setStartStateToCurrentState();
   std::vector<geometry_msgs::msg::Pose> approach_waypoints;
   target_pose1.position.z -= 0.03;
   approach_waypoints.push_back(target_pose1);
@@ -184,25 +185,27 @@ int main(int argc, char **argv) {
   approach_waypoints.push_back(target_pose1);
 
   moveit_msgs::msg::RobotTrajectory trajectory_approach;
-  const double jump_threshold = 0.0;
+  const double jump_threshold = 0.5;
   const double eef_step = 0.01;
 
   double fraction{move_group_arm.computeCartesianPath(
       approach_waypoints, eef_step, jump_threshold, trajectory_approach)};
 
-  if (fraction < 1.0) {
+  if (false) { // fraction < 1.0
     RCLCPP_ERROR(
         LOGGER, "Failed to create approach trajectory (generated fraction=%f).",
         fraction);
     return 7;
   }
 
+  RCLCPP_INFO(LOGGER, "Generated %f%% of the desired path).", fraction * 100);
+
   if (move_group_arm.execute(trajectory_approach) !=
       moveit::core::MoveItErrorCode::SUCCESS) {
     RCLCPP_ERROR(LOGGER, "Failed to follow approach trajectory.");
     return 8;
   }
-  /*
+
   // Close Gripper
 
   RCLCPP_INFO(LOGGER, "Close Gripper!");
@@ -237,7 +240,7 @@ int main(int argc, char **argv) {
   fraction = move_group_arm.computeCartesianPath(
       retreat_waypoints, eef_step, jump_threshold, trajectory_retreat);
 
-  if (fraction < 1.0) {
+  if (false) { // fraction < 1.0
     RCLCPP_ERROR(LOGGER,
                  "Failed to create retreat trajectory (generated fraction=%f).",
                  fraction);
@@ -249,7 +252,7 @@ int main(int argc, char **argv) {
     RCLCPP_ERROR(LOGGER, "Failed to follow retreat trajectory.");
     return 12;
   }
-  /*
+
   // Place
 
   RCLCPP_INFO(LOGGER, "Rotating Arm");
@@ -258,26 +261,40 @@ int main(int argc, char **argv) {
   current_state_arm->copyJointGroupPositions(joint_model_group_arm,
                                              joint_group_positions_arm);
 
-  joint_group_positions_arm[0] = 1.57; // Shoulder Pan
+  joint_group_positions_arm[0] = 3.14; // Shoulder Pan
 
   move_group_arm.setJointValueTarget(joint_group_positions_arm);
 
-  success_arm = (move_group_arm.plan(my_plan_arm) ==
-                 moveit::core::MoveItErrorCode::SUCCESS);
+  if (move_group_arm.plan(my_plan_arm) !=
+      moveit::core::MoveItErrorCode::SUCCESS) {
+    RCLCPP_ERROR(LOGGER, "Failed to plan to release position.");
+    return 13;
+  }
 
-  move_group_arm.execute(my_plan_arm);
+  if (move_group_arm.execute(my_plan_arm) !=
+      moveit::core::MoveItErrorCode::SUCCESS) {
+    RCLCPP_ERROR(LOGGER, "Failed to move to release position.");
+    return 14;
+  }
 
   // Open Gripper
 
   RCLCPP_INFO(LOGGER, "Release Object!");
 
-  move_group_gripper.setNamedTarget("open");
+  move_group_gripper.setNamedTarget("gripper_open");
 
-  success_gripper = (move_group_gripper.plan(my_plan_gripper) ==
-                     moveit::core::MoveItErrorCode::SUCCESS);
+  if (move_group_gripper.plan(my_plan_gripper) !=
+      moveit::core::MoveItErrorCode::SUCCESS) {
+    RCLCPP_ERROR(LOGGER, "Failed to create plain to open gripper.");
+    return 15;
+  }
 
-  move_group_gripper.execute(my_plan_gripper);
-  */
+  if (move_group_gripper.execute(my_plan_gripper) !=
+      moveit::core::MoveItErrorCode::SUCCESS) {
+    RCLCPP_ERROR(LOGGER, "Failed to open gripper.");
+    return 16;
+  }
+
   rclcpp::shutdown();
   return 0;
 }
