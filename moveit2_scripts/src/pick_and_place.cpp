@@ -38,6 +38,61 @@ int main(int argc, char **argv) {
   RCLCPP_INFO(LOGGER, "Arm end effector link: %s",
               move_group_arm.getEndEffectorLink().c_str());
 
+  // Setup collision objects.
+
+  // Create collision object for the robot to avoid
+  auto const collision_object = [frame_id = move_group_arm.getPlanningFrame()] {
+    moveit_msgs::msg::CollisionObject collision_object;
+    collision_object.header.frame_id = frame_id;
+    collision_object.id = "box1";
+    shape_msgs::msg::SolidPrimitive wall_plane;
+
+    // Define the wall plane
+    wall_plane.type = wall_plane.BOX;
+    wall_plane.dimensions.resize(3);
+    wall_plane.dimensions[wall_plane.BOX_X] = 2.0;
+    wall_plane.dimensions[wall_plane.BOX_Y] = 0.01;
+    wall_plane.dimensions[wall_plane.BOX_Z] = 2.0;
+
+    // Define the pose of the box (relative to the frame_id)
+    geometry_msgs::msg::Pose wall_plane_pose;
+    wall_plane_pose.orientation.w =
+        1.0; // We can leave out the x, y, and z components of the quaternion
+             // since they are initialized to 0
+    wall_plane_pose.position.x = 0.0;
+    wall_plane_pose.position.y = 0.5;
+    wall_plane_pose.position.z = 0.0;
+
+    collision_object.primitives.push_back(wall_plane);
+    collision_object.primitive_poses.push_back(wall_plane_pose);
+    collision_object.operation = collision_object.ADD;
+
+    // Define the table plane
+    shape_msgs::msg::SolidPrimitive table_plane;
+    table_plane.type = table_plane.BOX;
+    table_plane.dimensions.resize(3);
+    table_plane.dimensions[table_plane.BOX_X] = 2.0;
+    table_plane.dimensions[table_plane.BOX_Y] = 2.0;
+    table_plane.dimensions[table_plane.BOX_Z] = 0.01;
+
+    // Define the pose of the box (relative to the frame_id)
+    geometry_msgs::msg::Pose table_plane_pose;
+    table_plane_pose.orientation.w =
+        1.0; // We can leave out the x, y, and z components of the quaternion
+             // since they are initialized to 0
+    table_plane_pose.position.x = 0.5;
+    table_plane_pose.position.y = 0.25;
+    table_plane_pose.position.z = 0.0;
+
+    collision_object.primitives.push_back(table_plane);
+    collision_object.primitive_poses.push_back(table_plane_pose);
+    collision_object.operation = collision_object.ADD;
+
+    return collision_object;
+  }();
+  moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+  planning_scene_interface.applyCollisionObject(collision_object);
+
   // Get Current State
   moveit::core::RobotStatePtr current_state_arm =
       move_group_arm.getCurrentState(10);
