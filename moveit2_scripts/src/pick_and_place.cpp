@@ -100,11 +100,9 @@ int main(int argc, char **argv) {
       move_group_gripper.getCurrentState(10);
 
   std::vector<double> joint_group_positions_arm;
-  std::vector<double> joint_group_positions_gripper;
+
   current_state_arm->copyJointGroupPositions(joint_model_group_arm,
                                              joint_group_positions_arm);
-  current_state_gripper->copyJointGroupPositions(joint_model_group_gripper,
-                                                 joint_group_positions_gripper);
 
   // Go Home
   RCLCPP_INFO(LOGGER, "Going Home");
@@ -139,7 +137,7 @@ int main(int argc, char **argv) {
   target_pose1.orientation.w = 0.0;
   target_pose1.position.x = 0.341;
   target_pose1.position.y = -0.020;
-  target_pose1.position.z = 0.26;
+  target_pose1.position.z = 0.24;
   move_group_arm.setPoseTarget(target_pose1);
 
   if (move_group_arm.plan(my_plan_arm) !=
@@ -185,7 +183,7 @@ int main(int argc, char **argv) {
   approach_waypoints.push_back(target_pose1);
 
   moveit_msgs::msg::RobotTrajectory trajectory_approach;
-  const double jump_threshold = 0.5;
+  const double jump_threshold = 1000000;
   const double eef_step = 0.01;
 
   double fraction{move_group_arm.computeCartesianPath(
@@ -210,7 +208,12 @@ int main(int argc, char **argv) {
 
   RCLCPP_INFO(LOGGER, "Close Gripper!");
 
-  move_group_gripper.setNamedTarget("gripper_close");
+  std::vector<double> joint_group_positions_gripper;
+  current_state_gripper->copyJointGroupPositions(joint_model_group_gripper,
+                                                 joint_group_positions_gripper);
+
+  joint_group_positions_gripper[2] = 0.66;
+  move_group_gripper.setJointValueTarget(joint_group_positions_gripper);
 
   if (move_group_gripper.plan(my_plan_gripper) !=
       moveit::core::MoveItErrorCode::SUCCESS) {
@@ -221,13 +224,13 @@ int main(int argc, char **argv) {
   if (move_group_gripper.execute(my_plan_gripper) !=
       moveit::core::MoveItErrorCode::SUCCESS) {
     RCLCPP_ERROR(LOGGER, "Failed to close gripper.");
-    return 10;
+    // return 10;
   }
 
   // Retreat
 
   RCLCPP_INFO(LOGGER, "Retreat from object!");
-
+  move_group_arm.setStartStateToCurrentState();
   std::vector<geometry_msgs::msg::Pose> retreat_waypoints;
   target_pose1.position.z += 0.03;
   retreat_waypoints.push_back(target_pose1);
@@ -247,7 +250,7 @@ int main(int argc, char **argv) {
     return 11;
   }
 
-  if (move_group_arm.execute(trajectory_approach) !=
+  if (move_group_arm.execute(trajectory_retreat) !=
       moveit::core::MoveItErrorCode::SUCCESS) {
     RCLCPP_ERROR(LOGGER, "Failed to follow retreat trajectory.");
     return 12;
