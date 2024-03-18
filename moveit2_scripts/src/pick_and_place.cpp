@@ -4,7 +4,26 @@
 #include <moveit_msgs/msg/display_robot_state.hpp>
 #include <moveit_msgs/msg/display_trajectory.hpp>
 
+#include <chrono>
+#include <cmath>
+
+using namespace std::chrono_literals;
+
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("move_group_demo");
+
+// Gripper values.
+constexpr double kObjectWidth{0.65};
+static const double kGripperGraspingValue{
+    (-140840.9278) * std::pow(kObjectWidth, 5.0) +
+    (+22667.9431) * std::pow(kObjectWidth, 4.0) +
+    (-1551.6277) * std::pow(kObjectWidth, 3.0) +
+    (+38.2691) * std::pow(kObjectWidth, 2.0) +
+    (-8.0630) * std::pow(kObjectWidth, 1.0) +
+    (+0.8047) * std::pow(kObjectWidth, 0.0)};
+constexpr double kGripperMinValue{0.000};  // rad
+constexpr double kGripperMaxValue{0.800};  // rad
+constexpr double kGripperTolerance{0.035}; // rad
+constexpr int kGripperGraspStages{3};
 
 int main(int argc, char **argv) {
   // Initialize.
@@ -205,27 +224,37 @@ int main(int argc, char **argv) {
   }
 
   // Close Gripper
-
   RCLCPP_INFO(LOGGER, "Close Gripper!");
 
   std::vector<double> joint_group_positions_gripper;
   current_state_gripper->copyJointGroupPositions(joint_model_group_gripper,
                                                  joint_group_positions_gripper);
 
-  joint_group_positions_gripper[2] = 0.66;
-  move_group_gripper.setJointValueTarget(joint_group_positions_gripper);
+  // multi stage gripper close action for safe gripping of object
+  auto gripper_value{kGripperGraspingValue -
+                     kGripperGraspStages * kGripperTolerance};
+  bool successful_grasp{true};
+  for (int i{0}; i < kGripperGraspStages; ++i) {
+    joint_group_positions_gripper[2] = gripper_value;
+    move_group_gripper.setJointValueTarget(joint_group_positions_gripper);
 
-  if (move_group_gripper.plan(my_plan_gripper) !=
-      moveit::core::MoveItErrorCode::SUCCESS) {
-    RCLCPP_ERROR(LOGGER, "Failed to create plain to close gripper.");
+    successful_grasp &= move_group_gripper.plan(my_plan_gripper) ==
+                            moveit::core::MoveItErrorCode::SUCCESS &&
+                        move_group_gripper.execute(my_plan_gripper) ==
+                            moveit::core::MoveItErrorCode::SUCCESS;
+    if (!successful_grasp) {
+      break;
+    }
+    std::this_thread::sleep_for(100ms);
+    gripper_value += kGripperTolerance;
+  }
+
+  if (!successful_grasp) {
+    RCLCPP_ERROR(LOGGER, "Failed to grasp the object.");
     return 9;
   }
 
-  if (move_group_gripper.execute(my_plan_gripper) !=
-      moveit::core::MoveItErrorCode::SUCCESS) {
-    RCLCPP_ERROR(LOGGER, "Failed to close gripper.");
-    // return 10;
-  }
+  std::this_thread::sleep_for(500ms);
 
   // Retreat
 
