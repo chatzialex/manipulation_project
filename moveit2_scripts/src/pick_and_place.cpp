@@ -12,7 +12,9 @@ using namespace std::chrono_literals;
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("move_group_demo");
 
 // Gripper values.
-constexpr double kObjectWidth{0.65};
+constexpr double kGripperGraspingValue{0.656};
+/*
+constexpr double kObjectWidth{0.40};
 static const double kGripperGraspingValue{
     (-140840.9278) * std::pow(kObjectWidth, 5.0) +
     (+22667.9431) * std::pow(kObjectWidth, 4.0) +
@@ -20,9 +22,10 @@ static const double kGripperGraspingValue{
     (+38.2691) * std::pow(kObjectWidth, 2.0) +
     (-8.0630) * std::pow(kObjectWidth, 1.0) +
     (+0.8047) * std::pow(kObjectWidth, 0.0)};
-constexpr double kGripperMinValue{0.000};  // rad
-constexpr double kGripperMaxValue{0.800};  // rad
-constexpr double kGripperTolerance{0.035}; // rad
+*/
+constexpr double kGripperMinValue{0.000}; // rad
+constexpr double kGripperMaxValue{0.800}; // rad
+constexpr double kGripperTolerance{0.01}; // rad
 constexpr int kGripperGraspStages{3};
 
 int main(int argc, char **argv) {
@@ -154,7 +157,7 @@ int main(int argc, char **argv) {
   target_pose1.orientation.y = 0.707;
   target_pose1.orientation.z = 0.0;
   target_pose1.orientation.w = 0.0;
-  target_pose1.position.x = 0.341;
+  target_pose1.position.x = 0.34;
   target_pose1.position.y = -0.020;
   target_pose1.position.z = 0.24;
   move_group_arm.setPoseTarget(target_pose1);
@@ -202,16 +205,17 @@ int main(int argc, char **argv) {
   approach_waypoints.push_back(target_pose1);
 
   moveit_msgs::msg::RobotTrajectory trajectory_approach;
-  const double jump_threshold = 1000000;
+  const double jump_threshold = 10.0;
   const double eef_step = 0.01;
 
   double fraction{move_group_arm.computeCartesianPath(
       approach_waypoints, eef_step, jump_threshold, trajectory_approach)};
 
-  if (false) { // fraction < 1.0
-    RCLCPP_ERROR(
-        LOGGER, "Failed to create approach trajectory (generated fraction=%f).",
-        fraction);
+  if (fraction < 1.0) {
+    RCLCPP_ERROR(LOGGER,
+                 "Failed to create approach trajectory (only able to generate "
+                 "%f %% of it).",
+                 fraction * 100);
     return 7;
   }
 
@@ -235,9 +239,12 @@ int main(int argc, char **argv) {
                      kGripperGraspStages * kGripperTolerance};
   bool successful_grasp{true};
   for (int i{0}; i < kGripperGraspStages; ++i) {
+    gripper_value += kGripperTolerance;
+    current_state_gripper->copyJointGroupPositions(
+        joint_model_group_gripper, joint_group_positions_gripper);
     joint_group_positions_gripper[2] = gripper_value;
     move_group_gripper.setJointValueTarget(joint_group_positions_gripper);
-
+    RCLCPP_INFO(LOGGER, "Grasping width: %f", joint_group_positions_gripper[2]);
     successful_grasp &= move_group_gripper.plan(my_plan_gripper) ==
                             moveit::core::MoveItErrorCode::SUCCESS &&
                         move_group_gripper.execute(my_plan_gripper) ==
@@ -246,7 +253,6 @@ int main(int argc, char **argv) {
       break;
     }
     std::this_thread::sleep_for(100ms);
-    gripper_value += kGripperTolerance;
   }
 
   if (!successful_grasp) {
@@ -272,10 +278,11 @@ int main(int argc, char **argv) {
   fraction = move_group_arm.computeCartesianPath(
       retreat_waypoints, eef_step, jump_threshold, trajectory_retreat);
 
-  if (false) { // fraction < 1.0
+  if (fraction < 1.0) {
     RCLCPP_ERROR(LOGGER,
-                 "Failed to create retreat trajectory (generated fraction=%f).",
-                 fraction);
+                 "Failed to create approach trajectory (only able to generate "
+                 "%f %% of it).",
+                 fraction * 100);
     return 11;
   }
 
@@ -293,7 +300,15 @@ int main(int argc, char **argv) {
   current_state_arm->copyJointGroupPositions(joint_model_group_arm,
                                              joint_group_positions_arm);
 
-  joint_group_positions_arm[0] = 3.14; // Shoulder Pan
+  const auto shoulder_lower_limit{
+      joint_model_group_arm->getActiveJointModelsBounds()[0][0][0]
+          .min_position_};
+
+  if (joint_group_positions_arm[0] - 3.14 >= shoulder_lower_limit) {
+    joint_group_positions_arm[0] -= 3.14;
+  } else {
+    joint_group_positions_arm[0] += 3.14;
+  }
 
   move_group_arm.setJointValueTarget(joint_group_positions_arm);
 
