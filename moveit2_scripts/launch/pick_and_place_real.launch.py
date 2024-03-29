@@ -10,13 +10,13 @@ def generate_launch_description():
     moveit_cpp_node = Node(
         name="pick_and_place",
         package="moveit2_scripts",
-        executable="pick_and_place",
+        executable="pick_and_place_real",
         output="screen",
         parameters=[
             moveit_config.robot_description,
             moveit_config.robot_description_semantic,
             moveit_config.robot_description_kinematics,
-            {'use_sim_time': True},
+            {'use_sim_time': False},
         ],
     )
 
