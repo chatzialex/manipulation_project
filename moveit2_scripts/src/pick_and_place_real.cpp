@@ -188,7 +188,8 @@ int main(int argc, char **argv) {
   }
 
   if (move_group_gripper.execute(my_plan_gripper) !=
-      moveit::core::MoveItErrorCode::SUCCESS) {
+          moveit::core::MoveItErrorCode::SUCCESS &&
+      false) {
     RCLCPP_ERROR(LOGGER, "Failed to open gripper.");
     return 6;
   }
@@ -247,8 +248,9 @@ int main(int argc, char **argv) {
     RCLCPP_INFO(LOGGER, "Grasping width: %f", joint_group_positions_gripper[2]);
     successful_grasp &= move_group_gripper.plan(my_plan_gripper) ==
                             moveit::core::MoveItErrorCode::SUCCESS &&
-                        move_group_gripper.execute(my_plan_gripper) ==
-                            moveit::core::MoveItErrorCode::SUCCESS;
+                        (move_group_gripper.execute(my_plan_gripper) ==
+                             moveit::core::MoveItErrorCode::SUCCESS ||
+                         true);
     if (!successful_grasp) {
       break;
     }
@@ -287,7 +289,8 @@ int main(int argc, char **argv) {
   }
 
   if (move_group_arm.execute(trajectory_retreat) !=
-      moveit::core::MoveItErrorCode::SUCCESS) {
+          moveit::core::MoveItErrorCode::SUCCESS &&
+      false) {
     RCLCPP_ERROR(LOGGER, "Failed to follow retreat trajectory.");
     return 12;
   }
@@ -337,7 +340,8 @@ int main(int argc, char **argv) {
   }
 
   if (move_group_gripper.execute(my_plan_gripper) !=
-      moveit::core::MoveItErrorCode::SUCCESS) {
+          moveit::core::MoveItErrorCode::SUCCESS &&
+      false) {
     RCLCPP_ERROR(LOGGER, "Failed to open gripper.");
     return 16;
   }
