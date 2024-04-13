@@ -16,6 +16,8 @@ find_package(interactive_markers REQUIRED)
 find_package(geometric_shapes REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(moveit_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(grasping_msgs REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -53,10 +55,41 @@ ament_target_dependencies(pick_and_place_real
 	moveit_ros_planning
 	control_msgs)
 
+add_library(find_objects_client
+	src/find_objects_client.cpp)
+target_include_directories(find_objects_client
+	PUBLIC
+	include
+)
+ament_target_dependencies(find_objects_client
+	rclcpp
+	rclcpp_action
+	grasping_msgs
+	geometry_msgs
+)
+
+add_executable(pick_and_place_perception
+    src/pick_and_place_perception.cpp)
+target_link_libraries(pick_and_place_perception
+	find_objects_client
+)
+ament_target_dependencies(pick_and_place_perception
+    ament_cmake
+	rclcpp
+	rclcpp_action
+	moveit_core
+	moveit_ros_planning_interface
+	interactive_markers
+	moveit_ros_planning
+	control_msgs
+	grasping_msgs
+)
+
 # Install the executable
 install(TARGETS 
 	pick_and_place
 	pick_and_place_real
+	pick_and_place_perception
     DESTINATION lib/${PROJECT_NAME}
 )
 
