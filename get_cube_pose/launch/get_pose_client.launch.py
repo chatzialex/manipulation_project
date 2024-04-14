@@ -5,10 +5,16 @@ from launch.actions import DeclareLaunchArgument
 
 def generate_launch_description():
   use_sim_time = LaunchConfiguration("use_sim_time")
-  
+  cloud_topic = LaunchConfiguration("cloud_topic")
+
   use_sim_time_arg = DeclareLaunchArgument(
     "use_sim_time",
      default_value="True"
+  )
+
+  cloud_topic_arg = DeclareLaunchArgument(
+    "cloud_topic",
+    default_value="/wrist_rgbd_depth_sensor/points"
   )
 
   basic_grasping_perception_node = Node(
@@ -16,6 +22,7 @@ def generate_launch_description():
     executable="basic_grasping_perception_node",
     output="screen",
     parameters = [{"use_sim_time" : use_sim_time}],
+    remappings=[('/wrist_rgbd_depth_sensor/points', cloud_topic)],
     emulate_tty=True
   )
 
@@ -29,6 +36,7 @@ def generate_launch_description():
 
   return LaunchDescription([
     use_sim_time_arg,
+    cloud_topic_arg,
     basic_grasping_perception_node,
     get_cube_pose_node
   ])  
