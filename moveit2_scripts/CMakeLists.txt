@@ -107,6 +107,7 @@ install(TARGETS
 	pick_and_place
 	pick_and_place_real
 	pick_and_place_perception
+	pick_and_place_perception_real
     DESTINATION lib/${PROJECT_NAME}
 )
 
