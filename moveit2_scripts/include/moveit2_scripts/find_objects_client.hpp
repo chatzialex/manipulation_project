@@ -7,6 +7,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
+#include <atomic>
 #include <memory>
 #include <optional>
 
@@ -27,7 +28,7 @@ private:
 
   rclcpp_action::Client<Find>::SharedPtr client_ptr_{};
 
-  bool in_progress_{false};
+  std::atomic<bool> in_progress_{false};
   std::optional<geometry_msgs::msg::Pose> result_{};
 
   void goalResponseCallback(const GoalHandleFind::SharedPtr &goal_handle);
