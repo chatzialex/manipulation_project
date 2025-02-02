@@ -1,7 +1,9 @@
 #include "grasping_msgs/action/find_graspable_objects.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-#include <inttypes.h>
+
+#include <atomic>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -33,6 +35,8 @@ public:
 
     if (!this->client_ptr_) {
       RCLCPP_ERROR(this->get_logger(), "Action client not initialized");
+      this->goal_done_ = true;
+      return;
     }
     if (!this->client_ptr_->wait_for_action_server(std::chrono::seconds(10))) {
       RCLCPP_ERROR(this->get_logger(),
@@ -60,11 +64,12 @@ public:
 private:
   rclcpp_action::Client<Find>::SharedPtr client_ptr_{};
   rclcpp::TimerBase::SharedPtr timer_{};
-  bool goal_done_{};
+  std::atomic<bool> goal_done_{};
 
   void goalResponseCallback(const GoalHandleFind::SharedPtr &goal_handle) {
     if (!goal_handle) {
       RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
+      this->goal_done_ = true;
     } else {
       RCLCPP_INFO(this->get_logger(),
                   "Goal accepted by server, waiting for result");
