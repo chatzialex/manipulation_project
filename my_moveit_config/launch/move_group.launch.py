@@ -6,12 +6,17 @@ from launch import LaunchDescription
 from launch.substitutions import LaunchConfiguration
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch_ros.actions import Node
+from launch.conditions import UnlessCondition
 
 def launch_setup(context, *args, **kwargs):
     use_sim_time = LaunchConfiguration("use_sim_time")
     trajectory_execution_yaml_arg = LaunchConfiguration("trajectory_execution_yaml")
     
     trajectory_execution_yaml = os.path.join(get_package_share_directory('my_moveit_config'), 'config', trajectory_execution_yaml_arg.perform(context))
+
+    remap_args = []
+    if use_sim_time.perform(context).lower() == 'false':
+        remap_args = [('/joint_states', '/merged_joint_states')]
 
     moveit_config = (
       MoveItConfigsBuilder("name", package_name="my_moveit_config")
@@ -30,7 +35,26 @@ def launch_setup(context, *args, **kwargs):
                 {"publish_robot_description_semantic": True},
                 {"use_sim_time": use_sim_time},
             ],
-        )
+            remappings=remap_args
+        ),
+        Node(
+            package='topic_tools',
+            executable='relay',
+            name='relay_joint_states',
+            output='screen',
+            parameters=[],
+            arguments=['/joint_states', '/merged_joint_states'],
+            condition=UnlessCondition(use_sim_time)
+        ),
+        Node(
+            package='topic_tools',
+            executable='relay',
+            name='relay_gripper_states',
+            output='screen',
+            parameters=[],
+            arguments=['/gripper/joint_states', '/merged_joint_states'],
+            condition=UnlessCondition(use_sim_time)
+        ),
     ]
 
 def generate_launch_description():
